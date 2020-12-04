@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "esUtil.h"
 // #include "shader.h"
 #include "glfm.h"
@@ -19,11 +20,11 @@ typedef struct {
     GLuint program;
     GLuint vertexBuffer;
 
-    double lastTouchX;
-    double lastTouchY;
+    float lastTouchX;
+    float lastTouchY;
 
-    double offsetX;
-    double offsetY;
+    float offsetX;
+    float offsetY;
 } ExampleApp;
 
 static void onFrame(GLFMDisplay *display, double frameTime);
@@ -50,7 +51,9 @@ void glfmMain(GLFMDisplay *display) {
     glfmSetTouchFunc(display, onTouch);
     glfmSetKeyFunc(display, onKey);
 }
-
+bool fistMouse=true;
+static float lightPos[3]={1.2f,1.0f,2.0f},cameraPosition[3]={0.0f,0.0f,3.0f};
+static ESMatrix projection,view,model;
 static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, double x, double y) {
     if (phase == GLFMTouchPhaseHover) {
         return false;
@@ -64,7 +67,27 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
     }
     app->lastTouchX = x;
     app->lastTouchY = y;
+    float front[3];
+    front[0]=cos(app->offsetX)*cos(app->offsetY);
+    front[1]=sin(app->offsetY);
+    front[2]=sin(app->offsetX)*cos(app->offsetY);
+    for(int i=0;i<3;i++)front[i]+=cameraPosition[i];
+    esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,front[0], front[1], front[2],0.0f, 1.0f, 0.0f );
     return true;
+    // if (firstMouse)
+    // {
+    //     app->lastTouchX = x;
+    //     app->lastTouchY = y;
+    //     firstMouse = false;
+    // }
+
+    // float xoffset = xpos - lastX;
+    // float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    // lastX = xpos;
+    // lastY = ypos;
+
+    // camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 static bool onKey(GLFMDisplay *display, GLFMKey keyCode, GLFMKeyAction action, int modifiers) {
@@ -317,6 +340,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glEnableVertexAttribArray(0);
         diffuseMap = loadTexture("container2.png");
         specularMap = loadTexture("container2_specular.png");
+        esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,0.0f, 0.0f, 0.0f,0.0f, 1.0f, 0.0f );
     }
 
     // Draw background
@@ -324,20 +348,17 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(app->program);
 
-        static float lightPos[3]={1.2f,1.0f,2.0f},cameraPosition[3]={0.0f,0.0f,3.0f};
         setVec3("objectColor", 1.0f, 0.5f, 0.31f);
         setVec3("lightColor",  1.0f, 1.0f, 1.0f);
         setVec3v("lightPos",lightPos);
         setVec3v("viewPos",cameraPosition);
         // view/projection transformations
         // world transformation
-        static ESMatrix projection,view,model;
         esPerspective ( &projection, 45.0f, (float)SCR_WIDTH/(float)SCR_WIDTH, 0.1f, 100.0f );
         // ESMatrix view = camera.GetViewMatrix();
         esMatrixLoadIdentity ( &model );
 
         // create view matrix transformation from the eye position
-        esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,0.0f, 0.0f, 0.0f,0.0f, 1.0f, 0.0f );
 
         // esMatrixMultiply ( &modelview, &model, &view );
 
