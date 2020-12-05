@@ -11,9 +11,9 @@
 #include "file_compat.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#ifndef GL_RED 
-#define GL_RED 0x1903
-#endif
+// #ifndef GL_RED 
+// #define GL_RED 0x1903
+// #endif
 #define SCR_WIDTH 2244
 #define SCR_HEIGHT 1080
 #include <android/log.h>
@@ -23,8 +23,8 @@ Camera camera(glm::vec3(0.0f,0.0f,0.0f));
 float lastFrame=0.0f,deltaTime=0.0f;
 extern "C"{
 typedef struct {
-    GLuint program;
-    GLuint vertexBuffer;
+    int program[2];
+    int vertexBuffer;
 
     float lastTouchX;
     float lastTouchY;
@@ -58,8 +58,7 @@ void glfmMain(GLFMDisplay *display) {
     glfmSetKeyFunc(display, onKey);
 }
 // bool fistMouse=true;
-static float lightPos[3]={1.2f,1.0f,2.0f},cameraPosition[3]={0.0f,0.0f,3.0f};
-static ESMatrix projection,view,model;
+
 static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, double x, double y) {
     if (phase == GLFMTouchPhaseHover) {
         return false;
@@ -129,7 +128,7 @@ static void onSurfaceCreated(GLFMDisplay *display, int width, int height) {
 static void onSurfaceDestroyed(GLFMDisplay *display) {
     // When the surface is destroyed, all existing GL resources are no longer valid.
     ExampleApp *app = (ExampleApp*) glfmGetUserData(display);
-    app->program = 0;
+    app->program[0] = 0;
     app->vertexBuffer = 0;
 }
 
@@ -223,9 +222,27 @@ unsigned int loadTexture(char const * path)
     return textureID;
 }
 }
-#define setVec3v(name,vec) glUniform3fv(glGetUniformLocation(app->program,name), 1, vec); 
-#define setVec3(name,x,y,z) glUniform3f(glGetUniformLocation(app->program, name), x, y, z); 
-#define setMat4(name,mat) glUniformMatrix4fv(glGetUniformLocation(app->program, name), 1, GL_FALSE, &(mat[0][0]));
+static glm::vec3 lightPos(1.2f,1.0f,2.0f);
+#define setVec3v(id,name,vec) glUniform3fv(glGetUniformLocation(id,name), 1, &vec[0]); 
+#define setVec3(id,name,x,y,z) glUniform3f(glGetUniformLocation(id, name), x, y, z); 
+#define setMat4(id,name,mat) glUniformMatrix4fv(glGetUniformLocation(id, name), 1, GL_FALSE, &(mat[0][0]));
+#define setInt(ID,name,value) glUniform1i(glGetUniformLocation(ID, name), value); 
+#define setFloat(ID,name,value) glUniform1f(glGetUniformLocation(ID, name), value); 
+
+int createShader(const char* vert_path,const char* frag_path){
+    GLuint vertShader = compileShader(GL_VERTEX_SHADER, vert_path);
+    GLuint fragShader = compileShader(GL_FRAGMENT_SHADER, frag_path);
+    if (vertShader == 0 || fragShader == 0) {
+        return 0;
+    }
+    int ID= glCreateProgram();
+    glAttachShader(ID, vertShader);
+    glAttachShader(ID, fragShader);
+    glLinkProgram(ID);
+    glDeleteShader(vertShader);
+    glDeleteShader(fragShader);
+    return ID;
+}
 static void onFrame(GLFMDisplay *display, double frameTime) {
     static ExampleApp *app;
     static unsigned int diffuseMap,specularMap;
@@ -280,28 +297,12 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
     deltaTime = frameTime/3.0f - lastFrame;
     lastFrame = frameTime/3.0f;
 
-    if (app->program == 0) {
+    if (app->program[0] == 0) {
         // app->program=ID;
         // GLuint vertShader = compileShader(GL_VERTEX_SHADER, "simple.vert");
         // GLuint fragShader = compileShader(GL_FRAGMENT_SHADER, "simple.frag");
-        GLuint vertShader = compileShader(GL_VERTEX_SHADER, "1.color.vs");
-        GLuint fragShader = compileShader(GL_FRAGMENT_SHADER, "1.color.fs");
-        if (vertShader == 0 || fragShader == 0) {
-            glfmSetMainLoopFunc(display, NULL);
-            return;
-        }
-        app->program = glCreateProgram();
-
-        glAttachShader(app->program, vertShader);
-        glAttachShader(app->program, fragShader);
-
-        // glBindAttribLocation(app->program, 0, "a_position");
-        // glBindAttribLocation(app->program, 1, "a_color");
-
-        glLinkProgram(app->program);
-
-        glDeleteShader(vertShader);
-        glDeleteShader(fragShader);
+        app->program[0]=createShader("1.color.vs","1.color.fs");
+        app->program[1]=createShader("1.light_cube.vs","1.light_cube.fs");
         // first, configure the cube's VAO (and VBO)
         glGenVertexArrays(1, &cubeVAO);
         glGenBuffers(1, &VBO);
@@ -322,45 +323,33 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glGenVertexArrays(1, &lightCubeVAO);
         glBindVertexArray(lightCubeVAO);
 
-        // we only need to bind to the VBO (to link it with glVertexAttribPointer), no need to fill it; the VBO's data already contains all we need (it's already bound, but we do it again for educational purposes)
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
         diffuseMap = loadTexture("container2.png");
         specularMap = loadTexture("container2_specular.png");
-        // esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,0.0f, 0.0f, 0.0f,0.0f, 1.0f, 0.0f );
-        for (int i = 0; i < 4; i++)for (int j = 0; j < 4; j++) {
-			model.m[i][j] = view.m[i][j] = projection.m[i][j] = i == j ? 1 : 0;
-		}
+        glUseProgram(app->program[0]);
+        setInt(app->program[0],"material.diffuse", 0);
+        setInt(app->program[0],"material.specular", 1);
+        setFloat(app->program[0],"material.shininess",64);
     }
 
     // Draw background
         glEnable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
+        glClearColor(0.05f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
-        glUseProgram(app->program);
+        glUseProgram(app->program[0]);
 
-        setVec3("objectColor", 1.0f, 0.5f, 0.31f);
-        setVec3("lightColor",  1.0f, 1.0f, 1.0f);
-        setVec3v("lightPos",lightPos);
-        setVec3v("viewPos",cameraPosition);
-        // view/projection transformations
-        // world transformation
-        // esPerspective ( &projection, 45.0f, (float)SCR_WIDTH/(float)SCR_WIDTH, 0.1f, 100.0f );
-        // ESMatrix view = camera.GetViewMatrix();
-        // esMatrixLoadIdentity ( &model );
-
-        // create view matrix transformation from the eye position
-
-        // esMatrixMultiply ( &modelview, &model, &view );
+        setVec3(app->program[0],"objectColor", 1.0f, 0.5f, 0.31f);
+        setVec3(app->program[0],"lightColor",  1.0f, 1.0f, 1.0f);
+        setVec3v(app->program[0],"lightPos",lightPos);
+        setVec3v(app->program[0],"viewPos",camera.Position);
         static glm::mat4 projection,view,model;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         view = camera.GetViewMatrix();
         model = glm::mat4(1.0f);
-        setMat4("projection", projection);
-        setMat4("view", view);
-        setMat4("model", model);
+        setMat4(app->program[0],"projection", projection);
+        setMat4(app->program[0],"view", view);
+        setMat4(app->program[0],"model", model);
 
 
 
@@ -373,23 +362,23 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    // if (app->vertexBuffer == 0) {
-    //     glGenBuffers(1, &app->vertexBuffer);
-    // }
-    // glBindBuffer(GL_ARRAY_BUFFER, app->vertexBuffer);
-    // const size_t stride = sizeof(GLfloat) * 6;
-    // glEnableVertexAttribArray(0);
-    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void *)0);
-    // glEnableVertexAttribArray(1);
-    // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void *)(sizeof(GLfloat) * 3));
 
-    // const GLfloat vertices[] = {
-    //     // x,y,z, r,g,b
-    //     app->offsetX + 0.0f, app->offsetY + 0.5f, 0.0,  1.0, 0.0, 0.0,
-    //     app->offsetX - 0.5f, app->offsetY - 0.5f, 0.0,  0.0, 1.0, 0.0,
-    //     app->offsetX + 0.5f, app->offsetY - 0.5f, 0.0,  0.0, 0.0, 1.0,
-    // };
+        glm::vec3 box2Pos(0.3,0.0,1.2);
+        // lightingShader.use();
+        model = glm::translate(model,box2Pos);
+        setMat4(app->program[0],"model",model);
+        glDrawArrays(GL_TRIANGLES,0,36);
+        model = glm::translate(model,box2Pos);
 
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    // glDrawArrays(GL_TRIANGLES, 0, 3);
+        // also draw the lamp object
+        glUseProgram(app->program[1]);
+        setMat4(app->program[1],"projection", projection);
+        setMat4(app->program[1],"view", view);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+        setMat4(app->program[1],"model", model);
+        glBindVertexArray(lightCubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+
 }
