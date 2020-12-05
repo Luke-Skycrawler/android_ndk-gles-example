@@ -64,7 +64,7 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
         return false;
     }
     ExampleApp *app = (ExampleApp*) glfmGetUserData(display);
-    
+    static float centerx,centery;
     if (phase != GLFMTouchPhaseBegan) {
         int width, height;
         glfmGetDisplaySize(display, &width, &height);
@@ -74,14 +74,17 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
     else{
         app->lastTouchX = x;
         app->lastTouchY = y;
+        centerx=x;
+        centery=y;
         return true;
     }
     float xoffset = x - app->lastTouchX;
     float yoffset = app->lastTouchY - y; // reversed since y-coordinates go from bottom to top
+    static const float RADIUS=0.05f*SCR_WIDTH;
     if(x>SCR_WIDTH/2.0F){
         camera.ProcessMouseMovement(xoffset, yoffset);
     }
-    else camera.ProcessKeyboard(yoffset>0?FORWARD:BACKWARD,deltaTime);
+    else camera.ProcessKeyboard(deltaTime,(x-centerx)/RADIUS,-(y-centery)/RADIUS);
     app->lastTouchX = x;
     app->lastTouchY = y;
     return true;
