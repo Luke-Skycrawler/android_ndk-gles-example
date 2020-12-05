@@ -14,10 +14,13 @@
 #ifndef GL_RED 
 #define GL_RED 0x1903
 #endif
+#define SCR_WIDTH 2244
+#define SCR_HEIGHT 1080
 #include <android/log.h>
 #define LOG_TAG "FUCK"
 #define  LOG(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
-Camera camera(glm::vec3(0.0f,0.0f,3.0f));
+Camera camera(glm::vec3(0.0f,0.0f,0.0f));
+float lastFrame=0.0f,deltaTime=0.0f;
 extern "C"{
 typedef struct {
     GLuint program;
@@ -76,7 +79,10 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
     }
     float xoffset = x - app->lastTouchX;
     float yoffset = app->lastTouchY - y; // reversed since y-coordinates go from bottom to top
-    camera.ProcessMouseMovement(xoffset, yoffset);
+    if(x>SCR_WIDTH/2.0F){
+        camera.ProcessMouseMovement(xoffset, yoffset);
+    }
+    else camera.ProcessKeyboard(yoffset>0?FORWARD:BACKWARD,deltaTime);
     app->lastTouchX = x;
     app->lastTouchY = y;
     return true;
@@ -220,8 +226,6 @@ unsigned int loadTexture(char const * path)
 #define setVec3v(name,vec) glUniform3fv(glGetUniformLocation(app->program,name), 1, vec); 
 #define setVec3(name,x,y,z) glUniform3f(glGetUniformLocation(app->program, name), x, y, z); 
 #define setMat4(name,mat) glUniformMatrix4fv(glGetUniformLocation(app->program, name), 1, GL_FALSE, &(mat[0][0]));
-#define SCR_WIDTH 2244
-#define SCR_HEIGHT 1080
 static void onFrame(GLFMDisplay *display, double frameTime) {
     static ExampleApp *app;
     static unsigned int diffuseMap,specularMap;
@@ -273,7 +277,9 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
     };
     app = (ExampleApp*) glfmGetUserData(display);
     // static Shader lightingShader("1.color.vs", "1.color.fs");
-    
+    deltaTime = frameTime/3.0f - lastFrame;
+    lastFrame = frameTime/3.0f;
+
     if (app->program == 0) {
         // app->program=ID;
         // GLuint vertShader = compileShader(GL_VERTEX_SHADER, "simple.vert");
@@ -330,6 +336,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
     }
 
     // Draw background
+        glEnable(GL_DEPTH_TEST);
         glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         glUseProgram(app->program);
