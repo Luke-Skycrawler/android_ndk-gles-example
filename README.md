@@ -7,6 +7,7 @@ android platform native app with gles implementation, using  glfm and jni build
 C++环境配好了。参考资料是OpenGLES 3.0 Programming Guide.（https://github.com/danginsburg/opengles3-book）
 ### 0.tree:
 create those folders within the same folder of .git
+```
 ├─Android
 │  ├─assets
 │  │  ├─mods
@@ -18,7 +19,7 @@ create those folders within the same folder of .git
 │  │  ├─rsLibs
 │  │  └─rsObj
    ├─jni
-...
+```
 
 ### 1. 
 之前装过Android Studio, 只需要新安装ant，cygwin（有git bash 的话也不用）和ndk，这些没有特殊要求。
