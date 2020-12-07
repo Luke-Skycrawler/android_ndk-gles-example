@@ -11,9 +11,9 @@
 #define LOG_TAG "FUCK"
 #define  LOG(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #include "camera.h"
-// #include "mesh.h"
-// #include "model.h"
 #include "glfm.h"
+#include "mesh.h"
+#include "model.h"
 // #pragma comment(lib, "libassimp.so")
 #define FILE_COMPAT_ANDROID_ACTIVITY glfmAndroidGetActivity()
 #include "file_compat.h"
@@ -34,17 +34,17 @@ static glm::vec3 lightPos(1.2f,1.0f,2.0f);
 #include <fstream>
 #include <vector>
 struct Vertex{
-    vertex(glm::vec3 pos,glm::vec3(norm)):Position(pos),Normal(norm){}
+    Vertex(glm::vec3 pos,glm::vec3(norm)):Position(pos),Normal(norm){}
     glm::vec3 Position;
     glm::vec3 Normal;
-}
-class Model:public Mesh{
+};
+class Model{
     public:
         Model(const char* filename){load_obj(filename);setupMesh();}
-        vector<vertex> vertices;
-        vector<glm::vec3> points;
-        vector<glm::vec3> faces;
-        vector<glm::vec3> normals;
+        std::vector<Vertex> vertices;
+        std::vector<glm::vec3> points;
+        std::vector<glm::vec3> faces;
+        std::vector<glm::vec3> normals;
         const void show();
     private:
         void setupMesh();
@@ -67,7 +67,7 @@ void Model::setupMesh(){
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);  
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(unsigned int), &faces[0], GL_STATIC_DRAW);
 
         // set the vertex attribute pointers
         // vertex Positions
@@ -88,23 +88,21 @@ void Model::setupMesh(){
 
         // glBindVertexArray(0);
     }
-void Model::show(){
+const void Model::show(){
         // draw mesh
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
 }
 glm::vec3 Model::Normal(int i){
-    normal.push
-    glm::vec3 v1(vertices[faces[i].x]-vertices[faces[i].y]]),
-        v2(vertices[faces[i].x]-vertices[faces[i].z]),
-        v3(glm::cross(v1,v2));
-    return glm::normalize(v3);
+    // normal.push
+    glm::vec3 v1(points[faces[i][0]]-points[faces[i][1]]),
+        v2(points[faces[i][0]]-points[faces[i][2]]);
+    return glm::normalize(glm::cross(v1,v2));
 }
 void Model::load_obj(const char* filename){
     char c;
-	ifstream fin(filename);
+	std::ifstream fin(filename);
 	int temppoints, tempfaces;
-	this->Clear();							// 清除所有数据
 	char tempchars[100];
 
 	fin >> c;
@@ -127,7 +125,7 @@ void Model::load_obj(const char* filename){
         int pt1,pt2,pt3;
 		fin >> pt1 >> pt2 >> pt3;			// 读入三角形顶点标号
 		if (pt1 *pt2*pt3==0) break;
-		faces.push_back(vec3(pt1,pt2,pt3));								// 添加新三角形
+		faces.push_back(glm::vec3(pt1,pt2,pt3));								// 添加新三角形
 		while (c != 'f' && c != 'g') {						// 忽略其他字母表示的含义
 			fin.getline(tempchars, 100);
 			fin >> c;
@@ -137,7 +135,10 @@ void Model::load_obj(const char* filename){
 	}
 	fin.close();
 	for (int i = 0; i < faces.size(); i++) {				// 设置三角形法向量
-		normals.push_back(Vertex(points[faces[i]],Normal(i)));
+        glm::vec3 tmp = Normal(i);
+        normals.push_back(tmp);
+        for(int j=0;j<3;j++)
+            vertices.push_back(Vertex(points[faces[i][j]],tmp));
 	}
 }*/
 
@@ -433,7 +434,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
     };
-    // static Model temple("20V.obj");
+    static Model temple("nanosuit/nanosuit.obj");
     app = (ExampleApp*) glfmGetUserData(display);
     // static Shader lightingShader("1.color.vs", "1.color.fs");
     deltaTime = frameTime/3.0f - lastFrame;
@@ -533,7 +534,10 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         setMat4(app->program[0],"model",model);
         glDrawArrays(GL_TRIANGLES,0,36);
         model = glm::translate(model,box2Pos);
-        // temple.Draw(app->program[0]);
+        model = glm::translate(model,glm::vec3(0.0f,-0.5f,0.0f));
+        model = glm::scale(model,glm::vec3(0.1f));
+        setMat4(app->program[0],"model",model);
+        temple.Draw(app->program[0]);
         // also draw the lamp object
         glUseProgram(app->program[1]);
         setMat4(app->program[1],"projection", projection);
@@ -544,4 +548,5 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         setMat4(app->program[1],"model", model);
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+        // temple.show();
 }
