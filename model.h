@@ -1,6 +1,6 @@
 #ifndef MODEL_H
 #define MODEL_H
-
+#define AI_CONFIG_ANDROID_JNI_ASSIMP_MANAGER_SUPPORT
 // #include <glad/glad.h> 
 
 #include <glm/glm.hpp>
@@ -12,6 +12,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include "glfm.h"
 // extern "C"{
 // #include "file_compat.h"
 // }
@@ -56,12 +57,10 @@ private:
     {
         // read file via ASSIMP
         Assimp::Importer importer;
-        // Assimp::AndroidJNIIOSystem ioSystem;
-        // if ( nullptr != ioSystem ) {
-        //     importer.SetIOHandler(ioSystem);
-        // }  
-        // char fullPath[PATH_MAX];
-        // fc_resdir(fullPath,sizeof(fullPath));
+        Assimp::AndroidJNIIOSystem* ioSystem=new Assimp::AndroidJNIIOSystem(glfmAndroidGetActivity());
+        if ( ioSystem!=nullptr ) {
+            importer.SetIOHandler(ioSystem);
+        }  
         const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
         // check for errors
         if(!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero

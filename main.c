@@ -72,7 +72,7 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
     front[1]=sin(app->offsetY);
     front[2]=sin(app->offsetX)*cos(app->offsetY);
     for(int i=0;i<3;i++)front[i]+=cameraPosition[i];
-    esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,front[0], front[1], front[2],0.0f, 1.0f, 0.0f );
+    //esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,front[0], front[1], front[2],0.0f, 1.0f, 0.0f );
     return true;
     // if (firstMouse)
     // {
@@ -340,12 +340,15 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glEnableVertexAttribArray(0);
         diffuseMap = loadTexture("container2.png");
         specularMap = loadTexture("container2_specular.png");
-        esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,0.0f, 0.0f, 0.0f,0.0f, 1.0f, 0.0f );
+        // esMatrixLookAt ( &view,cameraPosition[0],cameraPosition[1],cameraPosition[2] ,0.0f, 0.0f, 0.0f,0.0f, 1.0f, 0.0f );
+        for (int i = 0; i < 4; i++)for (int j = 0; j < 4; j++) {
+			model.m[i][j] = view.m[i][j] = projection.m[i][j] = i == j ? 1 : 0;
+		}
     }
 
     // Draw background
         glClearColor(0.0f, 0.5f, 0.5f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         glUseProgram(app->program);
 
         setVec3("objectColor", 1.0f, 0.5f, 0.31f);
@@ -354,9 +357,9 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         setVec3v("viewPos",cameraPosition);
         // view/projection transformations
         // world transformation
-        esPerspective ( &projection, 45.0f, (float)SCR_WIDTH/(float)SCR_WIDTH, 0.1f, 100.0f );
+        // esPerspective ( &projection, 45.0f, (float)SCR_WIDTH/(float)SCR_WIDTH, 0.1f, 100.0f );
         // ESMatrix view = camera.GetViewMatrix();
-        esMatrixLoadIdentity ( &model );
+        // esMatrixLoadIdentity ( &model );
 
         // create view matrix transformation from the eye position
 
