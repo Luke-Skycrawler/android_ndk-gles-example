@@ -1,2 +1,4 @@
 iOS/*
 Android/*
+! Android/jni/*
+.vscode/*

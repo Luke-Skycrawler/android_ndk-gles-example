@@ -30,118 +30,6 @@ static bool edge=false;
 
 static glm::mat4 init(1.0f);
 static glm::vec3 lightPos(1.2f,1.0f,2.0f);
-/*
-#include <fstream>
-#include <vector>
-struct Vertex{
-    Vertex(glm::vec3 pos,glm::vec3(norm)):Position(pos),Normal(norm){}
-    glm::vec3 Position;
-    glm::vec3 Normal;
-};
-class Model{
-    public:
-        Model(const char* filename){load_obj(filename);setupMesh();}
-        std::vector<Vertex> vertices;
-        std::vector<glm::vec3> points;
-        std::vector<glm::vec3> faces;
-        std::vector<glm::vec3> normals;
-        const void show();
-    private:
-        void setupMesh();
-        void load_obj(const char* filename);
-        glm::vec3 Normal(int i);
-        unsigned int vbo,ebo,vao;
-};
-void Model::setupMesh(){
-        // create buffers/arrays
-        glGenVertexArrays(1, &vao);
-        glGenBuffers(1, &vbo);
-        glGenBuffers(1, &ebo);
-
-        glBindVertexArray(vao);
-        // load data into vertex buffers
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        // A great thing about structs is that their memory layout is sequential for all its items.
-        // The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
-        // again translates to 3/2 floats which translates to a byte array.
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);  
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(unsigned int), &faces[0], GL_STATIC_DRAW);
-
-        // set the vertex attribute pointers
-        // vertex Positions
-        glEnableVertexAttribArray(0);	
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-        // vertex normals
-        glEnableVertexAttribArray(1);	
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
-        // // vertex texture coords
-        // glEnableVertexAttribArray(2);	
-        // glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
-        // // vertex tangent
-        // glEnableVertexAttribArray(3);
-        // glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
-        // // vertex bitangent
-        // glEnableVertexAttribArray(4);
-        // glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
-
-        // glBindVertexArray(0);
-    }
-const void Model::show(){
-        // draw mesh
-        glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, faces.size(), GL_UNSIGNED_INT, 0);
-}
-glm::vec3 Model::Normal(int i){
-    // normal.push
-    glm::vec3 v1(points[faces[i][0]]-points[faces[i][1]]),
-        v2(points[faces[i][0]]-points[faces[i][2]]);
-    return glm::normalize(glm::cross(v1,v2));
-}
-void Model::load_obj(const char* filename){
-    char c;
-	std::ifstream fin(filename);
-	int temppoints, tempfaces;
-	char tempchars[100];
-
-	fin >> c;
-	while (c != 'v') {
-		fin.getline(tempchars, 100);
-		fin >> c;
-	}
-
-	while(c == 'v') {
-        float x,y,z;
-		fin >> x >> y >> z;	// 读入顶点坐标
-		points.push_back(glm::vec3(x,y,z));				// 添加新顶点
-		fin >> c;
-	}
-	while (c != 'f') {
-		fin.getline(tempchars, 100);
-		fin >> c;
-	}
-	while (c == 'f') {
-        int pt1,pt2,pt3;
-		fin >> pt1 >> pt2 >> pt3;			// 读入三角形顶点标号
-		if (pt1 *pt2*pt3==0) break;
-		faces.push_back(glm::vec3(pt1,pt2,pt3));								// 添加新三角形
-		while (c != 'f' && c != 'g') {						// 忽略其他字母表示的含义
-			fin.getline(tempchars, 100);
-			fin >> c;
-		}
-		if (c == 'g') 
-			break;
-	}
-	fin.close();
-	for (int i = 0; i < faces.size(); i++) {				// 设置三角形法向量
-        glm::vec3 tmp = Normal(i);
-        normals.push_back(tmp);
-        for(int j=0;j<3;j++)
-            vertices.push_back(Vertex(points[faces[i][j]],tmp));
-	}
-}*/
-
 static void setInitModelMatrix(float x,float y){
     init=glm::rotate(glm::mat4(1.0f),x,camera.Up)*glm::rotate(glm::mat4(1.0f),-y,camera.Right)*init;    
 }
@@ -149,6 +37,9 @@ void setLightPos(float x,float y){
     
     lightPos+=glm::length(lightPos-camera.Position)*(camera.Up*y+camera.Right*x)*2.0f/(float)SCR_WIDTH;
 }
+//********************android sensors API
+#include <android/sensor.h>
+#include <Android/looper.h>
 extern "C"{
 typedef struct {
     int program[2];
@@ -166,7 +57,14 @@ static void onSurfaceCreated(GLFMDisplay *display, int width, int height);
 static void onSurfaceDestroyed(GLFMDisplay *display);
 static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, double x, double y);
 static bool onKey(GLFMDisplay *display, GLFMKey keyCode, GLFMKeyAction action, int modifiers);
-
+static void onAccelerometer(GLFMDisplay *display,GLFMSensorEvent event);
+static void onRotation(GLFMDisplay *display,GLFMSensorEvent event); 
+int trial=0;  
+// #define _assert(x) _ASSERT(x,__LINE__)
+// static void _ASSERT(int i,int line){
+//     if(i)LOG("assertion identified %d\n",line);
+//     else LOG("ERROR:%d\n",line);
+// }
 // Main entry point
 void glfmMain(GLFMDisplay *display) {
     ExampleApp *app = (ExampleApp*) calloc(1, sizeof(ExampleApp));
@@ -185,6 +83,9 @@ void glfmMain(GLFMDisplay *display) {
     // glfmSetMultitouchEnabled(display,true);
     glfmSetTouchFunc(display, onTouch);
     glfmSetKeyFunc(display, onKey);
+    // glfmSetSensorFunc(display,GLFMSensorAccelerometer,onAccelerometer);
+    glfmSetSensorFunc(display,GLFMSensorRotationMatrix,onRotation);
+    // RotationVector not available
 }
 // bool fistMouse=true;
 
@@ -209,6 +110,7 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
             LOG("double click: edge=%d\n",edge);
             edge=!edge;
             lastTouch=0.0f;
+            trial=(trial+1)%3;
         }
         else lastTouch=lastFrame;
         centerx=x;
@@ -364,7 +266,7 @@ unsigned int loadTexture(char const * path)
 
     return textureID;
 }
-}
+}// end of extern "C"
 #define setVec3v(id,name,vec) glUniform3fv(glGetUniformLocation(id,name), 1, &vec[0]); 
 #define setVec3(id,name,x,y,z) glUniform3f(glGetUniformLocation(id, name), x, y, z); 
 #define setMat4(id,name,mat) glUniformMatrix4fv(glGetUniformLocation(id, name), 1, GL_FALSE, &(mat[0][0]));
@@ -384,6 +286,28 @@ int createShader(const char* vert_path,const char* frag_path){
     glDeleteShader(vertShader);
     glDeleteShader(fragShader);
     return ID;
+}
+using namespace glm;
+mat4 view;
+#include <glm/gtc/type_ptr.hpp>
+static void onRotation(GLFMDisplay *display,GLFMSensorEvent event){
+    double * m = (double*)&event.matrix;
+    switch(trial){
+        case 0:
+        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+        break;
+        case 1:
+        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+        break;
+        case 2:
+        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+        break;
+    }
+    view = lookAt(camera.Position,camera.Position-vec3(m[6],m[8],-m[7]),vec3(m[0],m[2],-m[1]));
+}
+
+static void onAccelerometer(GLFMDisplay *display,GLFMSensorEvent event){
+    // view = lookAt(camera.Position,camera.Position+)
 }
 static void onFrame(GLFMDisplay *display, double frameTime) {
     static ExampleApp *app;
@@ -434,7 +358,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
     };
-    static Model temple("nanosuit/nanosuit.obj");
+    static Model temple("20V.obj");
     app = (ExampleApp*) glfmGetUserData(display);
     // static Shader lightingShader("1.color.vs", "1.color.fs");
     deltaTime = frameTime/3.0f - lastFrame;
@@ -491,9 +415,9 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         setVec3(app->program[0],"lightColor",  1.0f, 1.0f, 1.0f);
         setVec3v(app->program[0],"lightPos",lightPos);
         setVec3v(app->program[0],"viewPos",camera.Position);
-        static glm::mat4 projection,view,model;
+        static glm::mat4 projection,model;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        view = camera.GetViewMatrix();
+        // view = camera.GetViewMatrix();
         // model = glm::mat4(1.0f);
         model=init;
         setMat4(app->program[0],"projection", projection);
