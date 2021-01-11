@@ -59,7 +59,10 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
 static bool onKey(GLFMDisplay *display, GLFMKey keyCode, GLFMKeyAction action, int modifiers);
 static void onAccelerometer(GLFMDisplay *display,GLFMSensorEvent event);
 static void onRotation(GLFMDisplay *display,GLFMSensorEvent event); 
+static void onMove(GLFMDisplay *display,GLFMSensorEvent event); 
 int trial=0;  
+unsigned int depthMapFBO,depthMap;
+static const int SHADOW_WIDTH=800,SHADOW_HEIGHT=600;
 // #define _assert(x) _ASSERT(x,__LINE__)
 // static void _ASSERT(int i,int line){
 //     if(i)LOG("assertion identified %d\n",line);
@@ -85,7 +88,7 @@ void glfmMain(GLFMDisplay *display) {
     glfmSetKeyFunc(display, onKey);
     // glfmSetSensorFunc(display,GLFMSensorAccelerometer,onAccelerometer);
     glfmSetSensorFunc(display,GLFMSensorRotationMatrix,onRotation);
-    // RotationVector not available
+    // glfmSetSensorFunc(display,SHAYlinearAcceleration,onMove);
 }
 // bool fistMouse=true;
 
@@ -121,7 +124,7 @@ static bool onTouch(GLFMDisplay *display, int touch, GLFMTouchPhase phase, doubl
     float yoffset = app->lastTouchY - y; // reversed since y-coordinates go from bottom to top
     static const float RADIUS=0.05f*SCR_WIDTH;
     if(x>SCR_WIDTH/2.0F){
-        if(!edge)camera.ProcessMouseMovement(xoffset, yoffset);
+        if(!edge);//camera.ProcessMouseMovement(xoffset, yoffset);
         else setInitModelMatrix(xoffset*0.01f,yoffset*0.01f);
         // else setInitModelMatrix(app->offsetX,app->offsetY);
     }
@@ -292,22 +295,92 @@ mat4 view;
 #include <glm/gtc/type_ptr.hpp>
 static void onRotation(GLFMDisplay *display,GLFMSensorEvent event){
     double * m = (double*)&event.matrix;
-    switch(trial){
-        case 0:
-        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
-        break;
-        case 1:
-        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
-        break;
-        case 2:
-        LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
-        break;
-    }
+    // switch(trial){
+    //     case 0:
+    //     LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+    //     break;
+    //     case 1:
+    //     LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+    //     break;
+    //     case 2:
+    //     LOG("%d x %f y %f z %f\n",trial,m[trial],m[trial+3],m[trial+6]);
+    //     break;
+    // }
+    camera.Front=-vec3(m[6],m[8],-m[7]);
+    camera.Up=vec3(m[0],m[2],-m[1]);
+    camera.Right=-vec3(m[3],m[5],-m[4]);
     view = lookAt(camera.Position,camera.Position-vec3(m[6],m[8],-m[7]),vec3(m[0],m[2],-m[1]));
 }
 
 static void onAccelerometer(GLFMDisplay *display,GLFMSensorEvent event){
     // view = lookAt(camera.Position,camera.Position+)
+}
+static const float REDUCE_RATE=0.5;
+static void onMove(GLFMDisplay *display,GLFMSensorEvent event){
+    static float ots=0.0f; 
+    static vec3 oa(0.0f),velocity(0.0f);
+    if(ots==0){
+        ots=event.timestamp;
+        return;
+    }
+    float t=event.timestamp -ots;
+    // if(event.vector.x>5||event.vector.y>5||event.vector.z>5){
+    //     LOG("x %f y %f z %f\n",event.vector.x,event.vector.y,event.vector.z);
+    //     LOG("%f\n",t);
+    //     camera.Position+=camera.Front*0.2f;
+    // }
+    vec3 a=mat3(camera.GetViewMatrix())*vec3(-event.vector.y,event.vector.x,-event.vector.z);
+    velocity=0.5f*(a+oa)*t+velocity*(1-REDUCE_RATE*t);
+    camera.Position+=t*velocity;
+    oa=a;
+    ots=event.timestamp;
+}
+static float planeVertices[] = {
+    // positions            // normals         // texcoords
+     25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
+    -25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,   0.0f,  0.0f,
+    -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
+     25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
+    -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
+     25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,  25.0f, 25.0f
+};
+static void renderPlane(){
+    static unsigned int planeVBO,planeVAO=0;
+    if(planeVAO == 0){
+        // plane VAO
+        glGenVertexArrays(1, &planeVAO);
+        glGenBuffers(1, &planeVBO);
+        glBindVertexArray(planeVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glBindVertexArray(0);
+    }
+    glBindVertexArray(planeVAO);
+    glDrawArrays(GL_TRIANGLES,0,6);
+}
+static void gen_preview_framebuffer(){
+    glGenFramebuffers(1,&depthMapFBO);
+    glGenTextures(1, &depthMap);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+                SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    // glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,SCR_WIDTH,SCR_HEIGHT,0,GL_RGB,GL_UNSIGNED_BYTE,NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, depthMap, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    // glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
 }
 static void onFrame(GLFMDisplay *display, double frameTime) {
     static ExampleApp *app;
@@ -363,14 +436,18 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
     // static Shader lightingShader("1.color.vs", "1.color.fs");
     deltaTime = frameTime/3.0f - lastFrame;
     lastFrame = frameTime/3.0f;
-    static int simpleshader;
+    static int simpleshader,depthShader;
     if (app->program[0] == 0) {
         // app->program=ID;
         // GLuint vertShader = compileShader(GL_VERTEX_SHADER, "simple.vert");
         // GLuint fragShader = compileShader(GL_FRAGMENT_SHADER, "simple.frag");
-        app->program[0]=createShader("1.color.vs","1.color.fs");
+        // app->program[0]=createShader("1.color.vs","1.color.fs");
+        app->program[0]=createShader("1.color.vert","1.color.frag");
+        // lightingShader
         app->program[1]=createShader("1.light_cube.vs","1.light_cube.fs");
+        // lightCubeShaer
         simpleshader=createShader("1.color.vs","simple.fs");
+        depthShader =createShader("1.color.vs","simple.frag");
         // first, configure the cube's VAO (and VBO)
         glGenVertexArrays(1, &cubeVAO);
         glGenBuffers(1, &VBO);
@@ -396,10 +473,51 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         diffuseMap = loadTexture("container2.png");
         specularMap = loadTexture("container2_specular.png");
         glUseProgram(app->program[0]);
+        gen_preview_framebuffer();
         setInt(app->program[0],"material.diffuse", 0);
         setInt(app->program[0],"material.specular", 1);
         setFloat(app->program[0],"material.shininess",64);
+        setInt(app->program[0],"shadowMap",2);
     }
+    static glm::mat4 projection,model;
+    static glm::vec3 box2Pos(0.3,0.0,1.2);
+    static glm::mat4 lightProjection(glm::perspective(glm::radians(89.0f),(float)SHADOW_WIDTH/SHADOW_HEIGHT,0.1f,10.0f));
+    static glm::mat4 lightSpaceTrans;
+
+        lightSpaceTrans = glm::lookAt(lightPos,glm::vec3(0.0f),camera.WorldUp);
+        glBindFramebuffer(GL_FRAMEBUFFER,depthMapFBO);
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+        glUseProgram(depthShader);
+
+        // view/projection transformations
+        model = glm::mat4(1.0f);
+
+        // depthShader.setMat4("projection",projection);
+        setMat4(depthShader,"projection",lightProjection);
+        setMat4(depthShader,"view",lightSpaceTrans);
+        setMat4(depthShader,"model",model);
+        setVec3v(depthShader,"viewPos",lightPos);
+        // bind diffuse map
+        // render the cube
+        glBindVertexArray(cubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        // renderPlane();
+
+        model = glm::translate(model,box2Pos);
+        setMat4(depthShader,"model",model);
+        glDrawArrays(GL_TRIANGLES,0,36);
+        if(1){
+            model = glm::translate(model,box2Pos);
+            model = glm::translate(model,glm::vec3(0.0f,-0.5f,0.0f));
+            model = glm::scale(model,glm::vec3(0.1f));
+            setMat4(depthShader,"model",model);
+            temple.Draw(depthShader);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER,0);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D,depthMap);
 
     // Draw background
         glEnable(GL_DEPTH_TEST);
@@ -410,12 +528,12 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glClearColor(0.05f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         glUseProgram(app->program[0]);
-
+        lightSpaceTrans = lightProjection*lightSpaceTrans;
+        setMat4(app->program[0],"lightView",lightSpaceTrans);
         setVec3(app->program[0],"objectColor", 1.0f, 0.5f, 0.31f);
         setVec3(app->program[0],"lightColor",  1.0f, 1.0f, 1.0f);
         setVec3v(app->program[0],"lightPos",lightPos);
         setVec3v(app->program[0],"viewPos",camera.Position);
-        static glm::mat4 projection,model;
         projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         // view = camera.GetViewMatrix();
         // model = glm::mat4(1.0f);
@@ -434,6 +552,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
 
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
+        // renderPlane();
         static const float scale=1.02f;
         static glm::mat4 tmpmodel;
         tmpmodel=glm::scale(model,glm::vec3(scale,scale,scale));
@@ -452,7 +571,6 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         }
         model=glm::mat4(1.0f);
         glUseProgram(app->program[0]);
-        glm::vec3 box2Pos(0.3,0.0,1.2);
         // lightingShader.use();
         model = glm::translate(model,box2Pos);
         setMat4(app->program[0],"model",model);
@@ -472,5 +590,4 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         setMat4(app->program[1],"model", model);
         glBindVertexArray(lightCubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        // temple.show();
 }

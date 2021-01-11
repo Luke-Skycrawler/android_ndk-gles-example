@@ -1,0 +1,97 @@
+*********************************
+sensor_name :accelerometer-icm20690
+sensor_vendor :invensense
+ASENSOR_TYPE_ACCELEROMETER
+*********************************
+sensor_name :akm-akm09918
+sensor_vendor :akm
+ASENSOR_TYPE_MAGNETIC_FIELD
+*********************************
+sensor_name :orientation
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :als-tmd3702
+sensor_vendor :ams
+ASENSOR_TYPE_LIGHT
+*********************************
+sensor_name :proximity-tmd3702
+sensor_vendor :ams
+ASENSOR_TYPE_PROXIMITY
+*********************************
+sensor_name :gyroscope-icm20690
+sensor_vendor :invensense
+ASENSOR_TYPE_GYROSCOPE
+*********************************
+sensor_name :gravity
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :linear Acceleration
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :rotation Vector
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :airpress-lps22bh
+sensor_vendor :st
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :HALL sensor
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :uncalibrated Magnetic Field
+sensor_vendor :Asahi Kasei Microdevices
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :game Rotation Vector
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :uncalibrated Gyroscope
+sensor_vendor :STMicroelectronics
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :significant Motion
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :step Detector
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :step counter
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :geomagnetic Rotation Vector
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :phonecall sensor
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :mag bracket
+sensor_vendor :huawei, virtual
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :RPC sensor
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :agt
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+*********************************
+sensor_name :color sensor
+sensor_vendor :huawei
+ASENSOR_TYPE_UNKNOWN
+12-27 17:19:32.650 28966 28997 I FUCK    : *********************************
+12-27 17:19:32.650 28966 28997 I FUCK    : sensor_name :uncalibrated Accelerometer
+12-27 17:19:32.650 28966 28997 I FUCK    : sensor_vendor :huawei
+12-27 17:19:32.650 28966 28997 I FUCK    : ASENSOR_TYPE_UNKNOWN
+12-27 17:19:32.650 28966 28997 I FUCK    : *********************************

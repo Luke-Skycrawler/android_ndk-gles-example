@@ -19,7 +19,7 @@
  */
 
 #include "glfm.h"
-
+// #define GLFM_PLATFORM_ANDROID
 #ifdef GLFM_PLATFORM_ANDROID
 
 #include "android_native_app_glue.h"
@@ -1344,6 +1344,15 @@ void android_main(struct android_app *app) {
 
                         sensorEventReceived[GLFMSensorRotationMatrix] = true;
                         platformData->sensorEventValid[GLFMSensorRotationMatrix] = true;
+                    } else if (event.type == ASENSOR_TYPE_LINEAR_ACCELERATION) {
+                        GLFMSensorEvent *sensorEvent = &platformData->sensorEvent[SHAYlinearAcceleration];
+                        sensorEvent->sensor = SHAYlinearAcceleration;
+                        sensorEvent->timestamp = event.timestamp / 1000000000.0;
+                        sensorEvent->vector.x = (double)event.vector.x;
+                        sensorEvent->vector.y = (double)event.vector.y;
+                        sensorEvent->vector.z = (double)event.vector.z;
+                        sensorEventReceived[SHAYlinearAcceleration] = true;
+                        platformData->sensorEventValid[SHAYlinearAcceleration] = true;
                     }
                 }
 
@@ -1668,6 +1677,8 @@ static const ASensor *_glfmGetDeviceSensor(GLFMSensor sensor) {
             return ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_GYROSCOPE);
         case GLFMSensorRotationMatrix:
             return ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ROTATION_VECTOR);
+        case SHAYlinearAcceleration:
+            return ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_LINEAR_ACCELERATION);
         default:
             return NULL;
     }

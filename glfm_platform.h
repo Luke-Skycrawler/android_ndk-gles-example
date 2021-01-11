@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define GLFM_NUM_SENSORS 4
+#define GLFM_NUM_SENSORS 5
 
 struct GLFMDisplay {
     // Config

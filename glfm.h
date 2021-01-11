@@ -231,6 +231,7 @@ typedef enum {
     GLFMSensorMagnetometer, // Events are a vector in microteslas
     GLFMSensorGyroscope, // Events are a vector in radians/sec
     GLFMSensorRotationMatrix, // Events are a rotation matrix
+    SHAYlinearAcceleration
 } GLFMSensor;
 
 // MARK: - Structs and function pointers
