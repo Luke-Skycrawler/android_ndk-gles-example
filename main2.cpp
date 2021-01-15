@@ -31,7 +31,7 @@ static bool edge=false;
 static glm::mat4 init(1.0f);
 static glm::vec3 lightPos(1.2f,1.0f,2.0f);
 static void setInitModelMatrix(float x,float y){
-    init=glm::rotate(glm::mat4(1.0f),x,camera.Up)*glm::rotate(glm::mat4(1.0f),-y,camera.Right)*init;    
+    // init=glm::rotate(glm::mat4(1.0f),x,camera.Up)*glm::rotate(glm::mat4(1.0f),-y,camera.Right)*init;    
 }
 void setLightPos(float x,float y){
     
@@ -62,7 +62,7 @@ static void onRotation(GLFMDisplay *display,GLFMSensorEvent event);
 static void onMove(GLFMDisplay *display,GLFMSensorEvent event); 
 int trial=0;  
 unsigned int depthMapFBO,depthMap;
-static const int SHADOW_WIDTH=800,SHADOW_HEIGHT=600;
+static const int SHADOW_WIDTH=2244,SHADOW_HEIGHT=1080;
 // #define _assert(x) _ASSERT(x,__LINE__)
 // static void _ASSERT(int i,int line){
 //     if(i)LOG("assertion identified %d\n",line);
@@ -73,7 +73,7 @@ void glfmMain(GLFMDisplay *display) {
     ExampleApp *app = (ExampleApp*) calloc(1, sizeof(ExampleApp));
 
     glfmSetDisplayConfig(display,
-                         GLFMRenderingAPIOpenGLES2,
+                         GLFMRenderingAPIOpenGLES3,
                          GLFMColorFormatRGBA8888,
                          GLFMDepthFormat24,
                          GLFMStencilFormat8,
@@ -364,23 +364,44 @@ static void renderPlane(){
     glBindVertexArray(planeVAO);
     glDrawArrays(GL_TRIANGLES,0,6);
 }
-static void gen_preview_framebuffer(){
-    glGenFramebuffers(1,&depthMapFBO);
-    glGenTextures(1, &depthMap);
-    glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
-                SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    // glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,SCR_WIDTH,SCR_HEIGHT,0,GL_RGB,GL_UNSIGNED_BYTE,NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+void gen_preview_framebuffer()
+{
+   GLenum none = GL_NONE;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    // glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, depthMap, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-    // glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
+   // use 1K by 1K texture for shadow map
+
+   glGenTextures ( 1, &depthMap );
+   glBindTexture ( GL_TEXTURE_2D, depthMap );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE );
+   glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE );
+        
+   // Setup hardware comparison
+   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
+   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
+        
+   glTexImage2D ( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+                  SHADOW_WIDTH, SHADOW_HEIGHT, 
+                  0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL );
+
+   glBindTexture ( GL_TEXTURE_2D, 0 );
+
+
+   // setup fbo
+   glGenFramebuffers ( 1, &depthMapFBO );
+   glBindFramebuffer ( GL_FRAMEBUFFER, depthMapFBO );
+
+   glDrawBuffers ( 1, &none );
+   
+   glFramebufferTexture2D ( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0 );
+
+   glActiveTexture ( GL_TEXTURE0 );
+   glBindTexture ( GL_TEXTURE_2D, depthMap );
+ 
+
+   glBindFramebuffer ( GL_FRAMEBUFFER, 0 );
+
 }
 static void onFrame(GLFMDisplay *display, double frameTime) {
     static ExampleApp *app;
@@ -431,12 +452,22 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
     };
+    static float corner[] = {
+		0.5f, 1.0f, 0.0f, 1.0f,
+		0.5f, 0.5f, 0.0f, 0.0f,
+		1.0f, 0.5f, 1.0f, 0.0f,
+		0.5f, 1.0f, 0.0f, 1.0f,
+		1.0f, 0.5f, 1.0f, 0.0f,
+		1.0f, 1.0f, 1.0f, 1.0f};
+
+    // static Model temple("nanosuit/nanosuit.obj");
     static Model temple("20V.obj");
     app = (ExampleApp*) glfmGetUserData(display);
     // static Shader lightingShader("1.color.vs", "1.color.fs");
     deltaTime = frameTime/3.0f - lastFrame;
     lastFrame = frameTime/3.0f;
-    static int simpleshader,depthShader;
+    static unsigned int simpleshader,depthShader,cornerShader;
+    static unsigned int cornerVAO,cornerVBO;
     if (app->program[0] == 0) {
         // app->program=ID;
         // GLuint vertShader = compileShader(GL_VERTEX_SHADER, "simple.vert");
@@ -448,6 +479,7 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         // lightCubeShaer
         simpleshader=createShader("1.color.vs","simple.fs");
         depthShader =createShader("1.color.vs","simple.frag");
+        cornerShader=createShader("view.vs","core.frag");
         // first, configure the cube's VAO (and VBO)
         glGenVertexArrays(1, &cubeVAO);
         glGenBuffers(1, &VBO);
@@ -472,52 +504,71 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glEnableVertexAttribArray(0);
         diffuseMap = loadTexture("container2.png");
         specularMap = loadTexture("container2_specular.png");
+        // glUseProgram(depthShader);
+        // setInt(depthShader,"screenTexture",0);
+        
         glUseProgram(app->program[0]);
         gen_preview_framebuffer();
         setInt(app->program[0],"material.diffuse", 0);
         setInt(app->program[0],"material.specular", 1);
         setFloat(app->program[0],"material.shininess",64);
         setInt(app->program[0],"shadowMap",2);
+        glGenVertexArrays(1, &cornerVAO);
+        glGenBuffers(1, &cornerVBO);
+        glBindVertexArray(cornerVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, cornerVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(corner), &corner, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+        setInt(cornerShader,"screenTexture",0);
     }
-    static glm::mat4 projection,model;
+    float fscale=1.02f;
+    static glm::mat4 projection;
+    static glm::mat4 model;
+    static glm::mat4 tmpmodel;
     static glm::vec3 box2Pos(0.3,0.0,1.2);
-    static glm::mat4 lightProjection(glm::perspective(glm::radians(89.0f),(float)SHADOW_WIDTH/SHADOW_HEIGHT,0.1f,10.0f));
     static glm::mat4 lightSpaceTrans;
-
-        lightSpaceTrans = glm::lookAt(lightPos,glm::vec3(0.0f),camera.WorldUp);
-        glBindFramebuffer(GL_FRAMEBUFFER,depthMapFBO);
-        glEnable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-        glUseProgram(depthShader);
-
-        // view/projection transformations
+    static glm::mat4 lightPerspective(glm::perspective(glm::radians(89.0f),(float)SHADOW_WIDTH/SHADOW_HEIGHT,0.1f,10.0f));
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
+        view = camera.GetViewMatrix();
         model = glm::mat4(1.0f);
+        tmpmodel=glm::scale(model,glm::vec3(fscale,fscale,fscale));
+        lightSpaceTrans = glm::lookAt(lightPos,glm::vec3(0.0f),camera.WorldUp);
+// -------------------------------depth map-------------------------
+            glBindFramebuffer(GL_FRAMEBUFFER,depthMapFBO);
+            glViewport(0,0,SHADOW_WIDTH,SHADOW_HEIGHT);
+            glEnable(GL_DEPTH_TEST);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+            glUseProgram(depthShader);
 
-        // depthShader.setMat4("projection",projection);
-        setMat4(depthShader,"projection",lightProjection);
-        setMat4(depthShader,"view",lightSpaceTrans);
-        setMat4(depthShader,"model",model);
-        setVec3v(depthShader,"viewPos",lightPos);
-        // bind diffuse map
-        // render the cube
-        glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        // renderPlane();
+            // view/projection transformations
+            model = glm::mat4(1.0f);
 
-        model = glm::translate(model,box2Pos);
-        setMat4(depthShader,"model",model);
-        glDrawArrays(GL_TRIANGLES,0,36);
-        if(1){
-            model = glm::translate(model,box2Pos);
-            model = glm::translate(model,glm::vec3(0.0f,-0.5f,0.0f));
-            model = glm::scale(model,glm::vec3(0.1f));
+            // depthShader.setMat4("projection",projection);
+            setMat4(depthShader,"projection",lightPerspective);
+            setMat4(depthShader,"view",lightSpaceTrans);
             setMat4(depthShader,"model",model);
-            temple.Draw(depthShader);
-        }
-        glBindFramebuffer(GL_FRAMEBUFFER,0);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D,depthMap);
+            setVec3v(depthShader,"viewPos",lightPos);
+            // bind diffuse map
+            // render the cube
+            renderPlane();
+            glBindVertexArray(cubeVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+
+            model = glm::translate(model,box2Pos);
+            setMat4(depthShader,"model",model);
+            glDrawArrays(GL_TRIANGLES,0,36);
+                model = glm::translate(model,box2Pos+glm::vec3(0.0f,-0.5f,0.0f));
+                model = glm::scale(model,glm::vec3(0.1f));
+                setMat4(depthShader,"model",model);
+                temple.Draw(depthShader);
+            glBindFramebuffer(GL_FRAMEBUFFER,0);
+            glViewport(0,0,SCR_WIDTH,SCR_HEIGHT);
+            model=mat4(1.0f);
+// ---------------------------end of depth map-------------------------
 
     // Draw background
         glEnable(GL_DEPTH_TEST);
@@ -528,8 +579,9 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glClearColor(0.05f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         glUseProgram(app->program[0]);
-        lightSpaceTrans = lightProjection*lightSpaceTrans;
-        setMat4(app->program[0],"lightView",lightSpaceTrans);
+        static mat4 tmp_persp;
+        tmp_persp=glm::perspective(glm::radians(89.0f),(float)SHADOW_WIDTH/SHADOW_HEIGHT,0.1f,10.0f)*lightSpaceTrans;
+        setMat4(app->program[0],"lightView",tmp_persp);
         setVec3(app->program[0],"objectColor", 1.0f, 0.5f, 0.31f);
         setVec3(app->program[0],"lightColor",  1.0f, 1.0f, 1.0f);
         setVec3v(app->program[0],"lightPos",lightPos);
@@ -550,12 +602,28 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specularMap);
 
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D,depthMap);
+
+        renderPlane();
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        // renderPlane();
-        static const float scale=1.02f;
-        static glm::mat4 tmpmodel;
-        tmpmodel=glm::scale(model,glm::vec3(scale,scale,scale));
+        model = glm::translate(model,box2Pos);
+        setMat4(app->program[0],"model",model);
+        glDrawArrays(GL_TRIANGLES,0,36);
+        model = glm::translate(model,box2Pos+glm::vec3(0.0f,-0.5f,0.0f));
+        model = glm::scale(model,glm::vec3(0.1f));
+        setMat4(app->program[0],"model",model);
+        temple.Draw(app->program[0]);
+        // also draw the lamp object
+        glUseProgram(app->program[1]);
+        setMat4(app->program[1],"projection", projection);
+        setMat4(app->program[1],"view", view);
+        model = glm::translate(mat4(1.0f), lightPos);
+        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
+        setMat4(app->program[1],"model", model);
+        glBindVertexArray(lightCubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
         if(edge){
             glStencilFunc(GL_NOTEQUAL,1,0XFF);
             // glStencilMask(0x00);
@@ -569,25 +637,11 @@ static void onFrame(GLFMDisplay *display, double frameTime) {
             glEnable(GL_DEPTH_TEST);  
             glStencilFunc(GL_ALWAYS,1,0XFF);
         }
-        model=glm::mat4(1.0f);
-        glUseProgram(app->program[0]);
-        // lightingShader.use();
-        model = glm::translate(model,box2Pos);
-        setMat4(app->program[0],"model",model);
-        glDrawArrays(GL_TRIANGLES,0,36);
-        model = glm::translate(model,box2Pos);
-        model = glm::translate(model,glm::vec3(0.0f,-0.5f,0.0f));
-        model = glm::scale(model,glm::vec3(0.1f));
-        setMat4(app->program[0],"model",model);
-        temple.Draw(app->program[0]);
-        // also draw the lamp object
-        glUseProgram(app->program[1]);
-        setMat4(app->program[1],"projection", projection);
-        setMat4(app->program[1],"view", view);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        setMat4(app->program[1],"model", model);
-        glBindVertexArray(lightCubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_DEPTH_TEST);
+            glUseProgram(cornerShader);
+            glBindVertexArray(cornerVAO);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, depthMap);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
 }
