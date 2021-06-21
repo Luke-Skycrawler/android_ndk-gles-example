@@ -1,5 +1,5 @@
 # android_ndk-gles-example
-android platform native app with gles implementation, using  glfm and jni build 
+Native android VR app with gles implementation, compatible with Google Cardboard  
 ### INSTALL
 除了下载sdk的包之外几乎没打开过android studio。
 
